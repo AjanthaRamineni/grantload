@@ -23,7 +23,7 @@ def get_config(config_path):
 def prepare_query(connection, input_file):
     template_choice = 'make_grant'
     template_mod = getattr(queries, template_choice)
-    params = template_mod.get_params(connection)
+
 
     table1_fields = ['recid', 'Fiscal_Year', 'Academic_Unit', 'College', 'Dept', 'DeptID', 'Record_Status',
                      'PS_Project', 'DSR_Number', 'Award_Date', 'Total_Direct', 'Total_Indirect', 'Total_Awarded',
@@ -47,8 +47,10 @@ def prepare_query(connection, input_file):
     with open(input_file) as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=table1_fields)
         reader.next()
-        grant_item = params['Grant']
         for row in reader:
+
+            params = template_mod.get_params(connection)
+            grant_item = params['Grant']
 
             # Record ID
             row_id = row['recid']
@@ -217,15 +219,14 @@ def prepare_query(connection, input_file):
                     grant_item.end_date = datetime.datetime.strptime(row['Project_End_Date'], '%m/%d/%y').strftime('%Y-%m-%dT%H:%M:%S')
                     print params
 
-                    print params['AdministeredBy']
-
                 template_mod.run(connection, **params)
 
 
 def main(argv1, argv2):
     config_path = argv1
     input_file = argv2
-    parse_input(input_file)
+    output_file = input_file + "_" + datetime.datetime.now().strftime("%Y%m%d") + '.csv'
+    parse_input(input_file, output_file)
     config = get_config(config_path)
     email = config.get('email')
     password = config.get('password')
@@ -234,7 +235,7 @@ def main(argv1, argv2):
     vivo_url = config.get('upload_url')
 
     connection = Connection(vivo_url, email, password, update_endpoint, query_endpoint)
-    prepare_query(connection, input_file)
+    prepare_query(connection, output_file)
 
 
 if __name__ == '__main__':

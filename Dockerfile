@@ -1,9 +1,6 @@
-FROM ubuntu
-RUN apt-get -y update
-RUN apt-get -y install python2.7 python-pip
-RUN apt-get -y install git
-COPY requirements.txt config.yaml grant.csv grantload/ /usr/src/app/
-WORKDIR /usr/src/app
+FROM python:2.7-stretch
+COPY requirements.txt UF_Grant.csv grantload/ /usr/src/grantload/
+WORKDIR /usr/src/grantload
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pwd
-CMD python load_grant_data_from_file.py config.yaml grant.csv
+RUN cd grantload
+CMD ["load_grant_data_from_file.py", "../config.yaml", "../UF_Grant.csv"]
