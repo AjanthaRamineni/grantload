@@ -6,7 +6,6 @@ from owlpost.vivo_connect import Connection
 from owlpost.owls import match_input
 from vivo_queries.vdos import Author
 from vivo_queries import queries
-from parseinput import parse_input
 import datetime
 
 
@@ -23,7 +22,6 @@ def get_config(config_path):
 def prepare_query(connection, input_file):
     template_choice = 'make_grant'
     template_mod = getattr(queries, template_choice)
-
 
     table1_fields = ['recid', 'Fiscal_Year', 'Academic_Unit', 'College', 'Dept', 'DeptID', 'Record_Status',
                      'PS_Project', 'DSR_Number', 'Award_Date', 'Total_Direct', 'Total_Indirect', 'Total_Awarded',
@@ -46,7 +44,7 @@ def prepare_query(connection, input_file):
 
     with open(input_file) as csvfile:
         reader = csv.DictReader(csvfile, fieldnames=table1_fields)
-        reader.next()
+        reader.__next__()
         for row in reader:
 
             params = template_mod.get_params(connection)
@@ -56,16 +54,16 @@ def prepare_query(connection, input_file):
             row_id = row['recid']
 
             # Grant Name
-            grant_item.name = row['Title'].strip()
+            grant_item.name = scrub(row['Title'].strip())
 
             # Check if grant already exists
             match = match_input(connection, grant_item.name, "grant", True)
 
             if match:
-                print "Grant" + grant_item.name + "already exists."
+                print("Grant" + grant_item.name + "already exists.")
             else:
                 # If grant does not exist, create one
-                print "Grant:" + str(grant_item.name)
+                print("Grant:" + str(grant_item.name))
 
                 # Awarding Organization
                 if row['Prime_Sponsor_Division'].strip():
@@ -127,7 +125,7 @@ def prepare_query(connection, input_file):
                             update_path.run(connection, **author_params)
                         except Exception as e:
                             print("Record ID: " + row_id + ". Unable to create PI Person - " + contributor_item.name)
-                            print e
+                            print(e)
 
                     else:
                         # Person exists
@@ -144,7 +142,7 @@ def prepare_query(connection, input_file):
                         update_path.run(connection, **contributor_params)
                     except Exception as e:
                         print("Record ID: " + row_id + ". Unable to create PI Contributor - " + contributor_item.name)
-                        print e
+                        print(e)
 
                 # Contributor Co-PI
                 if row['CoPI'].strip():
@@ -173,7 +171,7 @@ def prepare_query(connection, input_file):
 
                         except Exception as e:
                             print("Record ID: " + row_id + ". Unable to create Co-PI Person - " + contributor_item.name)
-                            print e
+                            print(e)
                     else:
                         # Person exists
                         author = Author(connection)
@@ -189,7 +187,7 @@ def prepare_query(connection, input_file):
                         update_path3.run(connection, **contributor_params)
                     except Exception as e:
                         print("Record ID: " + row_id + ". Unable to create Co-PI Contributor - " + contributor_item.name)
-                        print e
+                        print(e)
 
                 # Administered By
                 if row['Prime_Sponsor']:
@@ -206,7 +204,7 @@ def prepare_query(connection, input_file):
                             update_path.run(connection, **adminby_params)
                         except Exception as e:
                             print("Record ID: " + row_id + ". Unable to create Administered By Organization - " + adminby_item.name)
-                            print e
+                            print(e)
                     else:
                         adminby_item.n_number = match
                         print("Record ID: " + row_id + ". The n number for this " + adminby_item.type + " is " + adminby_item.n_number)
@@ -214,19 +212,33 @@ def prepare_query(connection, input_file):
                 # Start and End date
                 if row['Project_Begin_Date'] and row['Project_End_Date']:
                     # Start date
-                    grant_item.start_date = datetime.datetime.strptime(row['Project_Begin_Date'], '%m/%d/%y').strftime('%Y-%m-%dT%H:%M:%S')
+                    try:
+                        grant_item.start_date = datetime.datetime.strptime(row['Project_Begin_Date'], '%m/%d/%y').strftime('%Y-%m-%dT%H:%M:%S')
+                    except Exception as e:
+                        grant_item.start_date = datetime.datetime.strptime(row['Project_Begin_Date'], '%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S')
+
                     # End date
-                    grant_item.end_date = datetime.datetime.strptime(row['Project_End_Date'], '%m/%d/%y').strftime('%Y-%m-%dT%H:%M:%S')
-                    print params
+                    try:
+                        grant_item.end_date = datetime.datetime.strptime(row['Project_End_Date'], '%m/%d/%y').strftime('%Y-%m-%dT%H:%M:%S')
+                    except Exception as e:
+                        grant_item.end_date = datetime.datetime.strptime(row['Project_End_Date'], '%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S')
+
+                    print(params)
 
                 template_mod.run(connection, **params)
 
 
-def main(argv1, argv2):
-    config_path = argv1
-    input_file = argv2
-    output_file = input_file + "_" + datetime.datetime.now().strftime("%Y%m%d") + '.csv'
-    parse_input(input_file, output_file)
+def scrub(label):
+    clean_label = label.replace('"', '\\"')
+    return clean_label
+
+
+def main():
+    input_dir = '/var'
+    config_path = input_dir + '/config.yaml'
+    input_file = input_dir + '/UF_Grant_Data.csv'
+    # output_file = input_file + "_" + datetime.datetime.now().strftime("%Y%m%d") + '.csv'
+    # parseinput.parse_input(input_file)
     config = get_config(config_path)
     email = config.get('email')
     password = config.get('password')
@@ -235,8 +247,8 @@ def main(argv1, argv2):
     vivo_url = config.get('upload_url')
 
     connection = Connection(vivo_url, email, password, update_endpoint, query_endpoint)
-    prepare_query(connection, output_file)
+    prepare_query(connection, input_file)
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main()
